@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model News {
+  id         Int       @id @default(autoincrement())
+
+  source     String?
+  tickers    String[]
+
+  title      String?
+  content    String?   @db.Text
+
+  newsTime   DateTime?   // yangilik chiqqan REAL vaqt (UTC yoki ET)
+  uniqueKey  String?     @unique
+
+  createdAt  DateTime   @default(now())
+  status     Int        @default(1) @db.SmallInt()
+
+  analyses NewsAnalysis[]
+
+  @@index([newsTime])
+}
+
+model NewsAnalysis {
+  id          Int      @id @default(autoincrement())
+  newsId      Int
+  ticker      String
+
+  sentiment   String
+  confidence  Int
+  impactType  String
+  impactStrength Int
+
+  expectedMin Int
+  expectedMax Int
+  reason      String   @db.Text
+  status      Int      @default(1) @db.SmallInt()
+
+  createdAt   DateTime @default(now())
+
+  news        News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@index([ticker])
+}
+
