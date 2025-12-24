@@ -12,6 +12,7 @@ model News {
 
   source     String?
   tickers    String[]
+  unique_text String?
 
   title      String?
   content    String?   @db.Text

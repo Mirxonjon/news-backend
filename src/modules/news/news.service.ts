@@ -10,6 +10,10 @@ import { FinnhubService } from '../market/finnhub.service';
 import { OpenaiService } from '../openai/openai.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NewsAnalysisService } from '../news-analysis/news-analysis.service';
+import axios from 'axios';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import 'dotenv/config';
+
 
 @Injectable()
 export class NewsService {
@@ -35,6 +39,7 @@ export class NewsService {
           title: data.title,
           content: data.content,
           newsTime: data.newsTime ?? null,
+          uniqueKey: `${data.source}-${data.title}-${data.newsTime}`.trim(),
         },
       });
 
@@ -189,25 +194,32 @@ export class NewsService {
     }
   }
 
+  @Cron(CronExpression.EVERY_MINUTE)
   async processScrapedNews(): Promise<any> {
     const methodName = this.processScrapedNews.name;
     this.logger.debug(`Method: ${methodName} - Scrapingni boshlayapmiz`);
 
     try {
+      const scraperBaseUrl = process.env.SCRAPER_BASE_URL;
+
+      if (!scraperBaseUrl) {
+        throw new Error('SCRAPER_BASE_URL is not defined');
+      }
       // ========================================
       // 1️⃣ Python Scraper → Yangiliklarni olish
       // ========================================
-      // const response = await axios.get('http://127.0.0.1:8000/scrape');
-      // const newsList = response.data;
-      const newsList = [
-        {
-          title: 'Top Wealth Group (TWG) Signals a Turnaround Year',
-          description: `Top Wealth Group, the premium caviar and fine-wine supplier, projected at least $4 million net profit for FY2025 — a sharp reversal from last year's $2 million loss. Management attributed the turnaround to major operational improvements throughout 2024. This news signals strong recovery momentum and renewed investor confidence for TWG.`,
-          ticker: ['TWG'],
-          source: 'GLOBENEWSWIRE',
-          date: '2025-12-08T19:43:00',
-        },
-      ];
+      const response = await axios.get(`${scraperBaseUrl}/scrape`);
+      const newsList = response.data;
+      // const newsList = [
+      //   {
+      //     title: 'Top Wealth Group (TWG) Signals a Turnaround Year',
+      //     description: `Top Wealth Group, the premium caviar and fine-wine supplier, projected at least $4 million net profit for FY2025 — a sharp reversal from last year's $2 million loss. Management attributed the turnaround to major operational improvements throughout 2024. This news signals strong recovery momentum and renewed investor confidence for TWG.`,
+      //     ticker: ['TWG'],
+      //     source: 'GLOBENEWSWIRE',
+      //     date: '2025-12-08T19:43:00',
+      //   },
+      // ];
+      console.log(newsList);
 
       this.logger.debug(
         `Method: ${methodName} - Scraping tugadi. Olingan yangiliklar soni: ${newsList.length}`
@@ -225,9 +237,31 @@ export class NewsService {
       for (const news of newsList) {
         try {
           // 1️⃣ Tickerlar mavjudligini tekshiramiz
-          if (!Array.isArray(news.ticker) || news.ticker.length === 0) {
+          if (
+            !Array.isArray(news.halal_status) ||
+            news.halal_status.length === 0
+          ) {
             this.logger.warn(`Ticker topilmadi, yangilik o'tkazib yuborildi`);
             continue;
+          }
+          let date = news.date ? new Date(news.date) : null;
+          const uniqueKey = `${news.source}-${news.title}-${date}`.trim();
+
+          const existsUniqueKey = await this.prisma.news.findUnique({
+            where: {
+              uniqueKey,
+            },
+          });
+          if (existsUniqueKey) {
+            // ⛔ Oldin kelgan yangilik
+            this.logger.warn(
+              `Bu yangilik bazada mavjud, yangilik o'tkazib yuborildi`
+            );
+            continue;
+            // return {
+            //   status: 'SKIPPED',
+            //   reason: 'News already exists',
+            // };
           }
 
           const createdNews = await this.create({
@@ -235,17 +269,23 @@ export class NewsService {
             tickers: news.ticker, // ["CTGO", "DVS"]
             title: news.title,
             content: news.description,
-            newsTime: news.date ? new Date(news.date) : null,
+            newsTime: date,
           });
           this.logger.debug(`create news: ${JSON.stringify(createdNews)}`);
           const newsId = createdNews.news.id;
 
           // 2️⃣ Har bir ticker bo‘yicha alohida ishlaymiz
-          for (const rawTicker of news.ticker) {
+          for (const rawTicker of news.halal_status) {
             try {
               if (!rawTicker) continue;
 
-              const ticker = rawTicker.toUpperCase();
+              if (rawTicker.status == 'NOT HALAL') {
+                this.logger.warn(
+                  `Ticker halal emas, yangilik o'tkazib yuborildi`
+                );
+                continue;
+              }
+              const ticker = rawTicker.ticker.toUpperCase();
 
               // 3️⃣ Market data
               const marketData =
@@ -300,11 +340,11 @@ export class NewsService {
 
               // 6️⃣ Telegram xabar
               const tgMessage = `
-<b>📢 Yangi yangilik (${ticker}):</b>
+          <b>📢 Yangi yangilik (${ticker}):</b>
 
-${news.title}
+          ${news.title}
 
-<b>AI tahlili:</b>
+ <b>AI tahlili:</b>
 • <b>Sentiment:</b> ${aiResult.sentiment}
 • <b>Impact Type:</b> ${aiResult.impact_type}
 • <b>Impact Strength:</b> ${aiResult.impact_strength}/100
@@ -312,14 +352,14 @@ ${news.title}
 • <b>AI Confidence:</b> ${aiResult.confidence}%
 • <b>Reason:</b> ${aiResult.reason}
 
-<b>🧮 Market ma'lumotlar:</b>
-• <b>Price:</b> $${marketData.context.price}
-• <b>ATR(14):</b> ${marketData.context.atr.toFixed(2)}
+ <b>🧮 Market ma'lumotlar:</b>
+ • <b>Price:</b> $${marketData.context.price}
+ • <b>ATR(14):</b> ${marketData.context.atr.toFixed(2)}
 • <b>Volatility (30d):</b> ${marketData.context.volatility.toFixed(2)}%
 • <b>Market Cap:</b> $${await this.formatNumber(marketData.context.marketCap)}
 
 #${ticker}
-        `;
+                  `;
 
               await this.telegramService.sendToGroup(tgMessage, topicId);
 
