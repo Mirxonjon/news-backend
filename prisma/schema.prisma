@@ -16,7 +16,7 @@ model News {
 
   title      String?
   content    String?   @db.Text
-
+  halalStatus String?   // halal yoki haram yangilik ekanligi
   newsTime   DateTime?   // yangilik chiqqan REAL vaqt (UTC yoki ET)
   uniqueKey  String?     @unique
 

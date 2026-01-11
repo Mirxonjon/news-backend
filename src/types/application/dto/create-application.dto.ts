@@ -28,6 +28,13 @@ export class CreateNewsDto {
   content?: string;
 
   @ApiPropertyOptional({
+    description: 'haloligi',
+    example:
+      'halal',
+  })
+  halalStatus?: string;
+
+  @ApiPropertyOptional({
     description: 'Yangilik chiqqan vaqt (ISO 8601 formatida, UTC yoki ET)',
     example: '2025-12-08T09:43:00-05:00',
   })

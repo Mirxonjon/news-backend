@@ -216,6 +216,7 @@ JSON schema (STRICT):
     "min": -50,
     "max": 50
   },
+  "analyst_signal": "yes | no",
   "reason": "1-2 jumlalik juda qisqa izoh (FAQAT O‘ZBEK TILIDA)"
 }
 

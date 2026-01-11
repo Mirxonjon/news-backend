@@ -14,7 +14,6 @@ import axios from 'axios';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import 'dotenv/config';
 
-
 @Injectable()
 export class NewsService {
   private logger = new Logger(NewsService.name);
@@ -39,6 +38,7 @@ export class NewsService {
           title: data.title,
           content: data.content,
           newsTime: data.newsTime ?? null,
+          halalStatus: data.halalStatus,
           uniqueKey: `${data.source}-${data.title}-${data.newsTime}`.trim(),
         },
       });
@@ -237,13 +237,13 @@ export class NewsService {
       for (const news of newsList) {
         try {
           // 1️⃣ Tickerlar mavjudligini tekshiramiz
-          if (
-            !Array.isArray(news.halal_status) ||
-            news.halal_status.length === 0
-          ) {
-            this.logger.warn(`Ticker topilmadi, yangilik o'tkazib yuborildi`);
-            continue;
-          }
+          // if (
+          //   !Array.isArray(news.halal_status) ||
+          //   news.halal_status.length === 0
+          // ) {
+          //   this.logger.warn(`Ticker topilmadi, yangilik o'tkazib yuborildi`);
+          //   continue;
+          // }
           let date = news.date ? new Date(news.date) : null;
           const uniqueKey = `${news.source}-${news.title}-${date}`.trim();
 
@@ -269,6 +269,7 @@ export class NewsService {
             tickers: news.ticker, // ["CTGO", "DVS"]
             title: news.title,
             content: news.description,
+            // halalStatus: news.halal_status,
             newsTime: date,
           });
           this.logger.debug(`create news: ${JSON.stringify(createdNews)}`);
@@ -279,12 +280,12 @@ export class NewsService {
             try {
               if (!rawTicker) continue;
 
-              if (rawTicker.status == 'NOT HALAL') {
-                this.logger.warn(
-                  `Ticker halal emas, yangilik o'tkazib yuborildi`
-                );
-                continue;
-              }
+              // if (rawTicker.status == 'NOT HALAL') {
+              //   this.logger.warn(
+              //     `Ticker halal emas, yangilik o'tkazib yuborildi`
+              //   );
+              //   continue;
+              // }
               const ticker = rawTicker.ticker.toUpperCase();
 
               // 3️⃣ Market data
@@ -326,8 +327,8 @@ export class NewsService {
               this.logger.debug(
                 `create news analysis: ${JSON.stringify(analysis)}`
               );
-
-              // 5️⃣ Sentiment → Topic tanlash
+              const companyPrice = marketData.context.price;
+              let topicId = 0;
               const sentiment =
                 aiResult?.sentiment?.toLowerCase() === 'ijobiy'
                   ? 'good'
@@ -335,10 +336,30 @@ export class NewsService {
                     ? 'bad'
                     : 'neutral';
 
-              const topicId =
-                this.telegramService.getTopicIdBySentiment(sentiment);
+              if (aiResult.analyst_signal == 'yes') {
+                topicId =
+                  this.telegramService.getTopicIdBySentimentAnalysist(
+                    sentiment
+                  );
+              } else {
+                if (companyPrice < 5) {
+                  topicId = this.telegramService.getTopicIdBySentiment(
+                    sentiment,
+                    'PENNY'
+                  );
+                } else if (companyPrice >= 5 && companyPrice <= 100) {
+                  topicId = this.telegramService.getTopicIdBySentiment(
+                    sentiment,
+                    'MID'
+                  );
+                } else if (companyPrice > 100) {
+                  topicId = this.telegramService.getTopicIdBySentiment(
+                    sentiment,
+                    'MEGA'
+                  );
+                }
+              }
 
-              // 6️⃣ Telegram xabar
               const tgMessage = `
           <b>📢 Yangi yangilik (${ticker}):</b>
 
@@ -361,7 +382,11 @@ export class NewsService {
 #${ticker}
                   `;
 
-              await this.telegramService.sendToGroup(tgMessage, topicId);
+              await this.telegramService.sendToGroup(
+                tgMessage,
+                topicId,
+                aiResult.analyst_signal
+              );
 
               // 7️⃣ Natijalarni saqlaymiz
               results.push({
