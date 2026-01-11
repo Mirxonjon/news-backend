@@ -379,6 +379,7 @@ export class NewsService {
 • <b>Volatility (30d):</b> ${marketData.context.volatility.toFixed(2)}%
 • <b>Market Cap:</b> $${await this.formatNumber(marketData.context.marketCap)}
 
+• <b>Halal status:${rawTicker.status}</b>
 #${ticker}
                   `;
 
