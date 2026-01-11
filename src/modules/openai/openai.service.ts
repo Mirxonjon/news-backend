@@ -217,6 +217,7 @@ JSON schema (STRICT):
     "max": 50
   },
   "analyst_signal": "yes | no",
+  "news_category": "latest | analyst_ratings | fda_approvals | mergers_acquisitions | svb_news",
   "reason": "1-2 jumlalik juda qisqa izoh (FAQAT O‘ZBEK TILIDA)"
 }
 

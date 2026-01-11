@@ -374,12 +374,13 @@ export class NewsService {
 • <b>Reason:</b> ${aiResult.reason}
 
  <b>🧮 Market ma'lumotlar:</b>
- • <b>Price:</b> $${marketData.context.price}
- • <b>ATR(14):</b> ${marketData.context.atr.toFixed(2)}
+• <b>Price:</b> $${marketData.context.price}
+• <b>ATR(14):</b> ${marketData.context.atr.toFixed(2)}
 • <b>Volatility (30d):</b> ${marketData.context.volatility.toFixed(2)}%
 • <b>Market Cap:</b> $${await this.formatNumber(marketData.context.marketCap)}
 
 • <b>Halal status:${rawTicker.status}</b>
+• <b>🗂 Manba / Bo‘lim:</b> ${aiResult.news_category}
 
 #${ticker}
                   `;
