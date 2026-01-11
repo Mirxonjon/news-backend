@@ -380,6 +380,7 @@ export class NewsService {
 • <b>Market Cap:</b> $${await this.formatNumber(marketData.context.marketCap)}
 
 • <b>Halal status:${rawTicker.status}</b>
+
 #${ticker}
                   `;
 
