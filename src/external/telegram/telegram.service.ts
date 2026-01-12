@@ -5,9 +5,9 @@ import { Telegraf, Context } from 'telegraf';
 @Injectable()
 export class TelegramService {
   private sentimentTopicMapPenny = {
-    good: Number(process.env.TELEGRAM_TOPIC_ID_GOOD_NEWS),
-    neutral: Number(process.env.TELEGRAM_TOPIC_ID_NEYRTAL_NEWS),
-    bad: Number(process.env.TELEGRAM_TOPIC_ID_BAD_NEWS),
+    good: Number(process.env.TELEGRAM_TOPIC_ID_PENNY_GOOD_NEWS),
+    neutral: Number(process.env.TELEGRAM_TOPIC_ID_PENNY_NEYRTAL_NEWS),
+    bad: Number(process.env.TELEGRAM_TOPIC_ID_PENNY_BAD_NEWS),
   };
   private sentimentTopicMapMid = {
     good: Number(process.env.TELEGRAM_TOPIC_ID_MID_GOOD_NEWS),
